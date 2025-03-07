@@ -1,0 +1,25 @@
+version: 1
+targets:
+        - default
+        - core0
+        - core1
+        - writer
+
+default:
+        type: alias
+        targets:
+                - core0
+                - core1
+                - writer
+
+core0:
+        type: x
+        compiler: "gcc"
+
+core1:
+        type: x
+        compiler: "gcc"
+
+writer:
+        type: x
+        compiler: "gcc"
