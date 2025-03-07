@@ -15,5 +15,8 @@ class build_tree:
                         raise Exception("Config Exception")
 
 
-        def build(self, target = 'default'):
-                self.logger.info(f"Building target {target}")
+        def build(self, targets):
+                self.logger.info(f"Building targets {targets}")
+
+        def clean(self, targets):
+                self.logger.info(f"Cleaning targets {targets}")

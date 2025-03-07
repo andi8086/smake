@@ -15,6 +15,7 @@ config_schema = Schema({
 
 class Config:
         logger = None
+        targets = set()
 
         def __init__(self, config):
                 self.logger = logging.getLogger("config")
@@ -41,8 +42,9 @@ class Config:
                                         "Missing target definition for {}".
                                       format(t))
                                 raise Exception("Missing target definition")
-                        print(t)
                         tar = target.TargetFactory(t, self.cfg[t])
+
+                        self.targets.add(tar)
 
                 return True
 
