@@ -20,8 +20,10 @@ class Config:
         project_dir = ""
         config_file = ""
         build_dir = ""
+        global_vars = {}
 
         def __init__(self, config, builddir):
+                self.global_vars = {}
                 self.logger = logging.getLogger("config")
                 self.config_file = os.path.abspath(config)
                 self.project_dir = os.path.dirname(self.config_file)
@@ -42,12 +44,35 @@ class Config:
                 except SchemaError as se:
                         raise se
 
+        def parse_include(self, include):
+                icfg = None
+                with open(include) as stream:
+                        icfg = yaml.safe_load(stream)
+
+                self.logger.info(f"Including {include}")
+                if 'global' in icfg:
+                        for key, val in icfg['global'].items():
+                                self.global_vars[key] = val
+
         def parse(self):
                 if self.cfg['version'] != CONFIG_VERSION:
                         self.logger.error(
                                 "Invalid Config Version {}".format(
                                         self.cfg['version']))
                         raise Exception("Invalid Config Version")
+
+                if "includes" in self.cfg:
+                        includes = self.cfg['includes']
+
+                        for i in includes:
+                                # rel path is relative to project_dir
+                                if os.path.isabs(i):
+                                        if os.path.isfile(i):
+                                                self.parse_include(i)
+                                else:
+                                        relpath = os.path.join(self.project_dir, os.path.dirname(i))
+                                        i = os.path.join(relpath, os.path.basename(i))
+                                        self.parse_include(i)
 
                 for t in self.cfg['targets']:
                         # Check if target has a definition

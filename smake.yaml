@@ -1,6 +1,11 @@
 version: 1
+
+includes:
+        - global.yaml
+
 targets:
         - default
+        - config
         - core0
         - core1
         - writer
@@ -12,6 +17,14 @@ default:
                 - core1
                 - writer
 
+config:
+        type: c
+        vars:
+                result: config.h
+        source_dir: src/
+        source: config.h.in
+        build_prefix: config
+
 core0:
         type: x
         vars:
@@ -20,6 +33,8 @@ core0:
                 result: core0.out
         source_dir: src/core0
         build_prefix: core0
+        depends:
+                - config
         objects:
                 - main.o
                 - blah/test.o
@@ -31,8 +46,6 @@ core0:
 
 core1:
         type: x
-        compiler: "gcc"
 
 writer:
         type: x
-        compiler: "gcc"

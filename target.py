@@ -3,6 +3,7 @@ import executor
 import re
 import os
 from pathlib import Path
+import shutil
 
 
 class Target:
@@ -51,19 +52,78 @@ class Target:
                 pass
 
         def var_subst(self, cmd):
-                cmd_vars = re.findall("\$[a-zA-Z0-9_]*", cmd)
+                cmd_vars = re.findall("\\$[a-zA-Z0-9_]*", cmd)
                 # Replace one by one with descending length
                 sorted_vars = sorted(cmd_vars, key=len)
                 sorted_vars.reverse()
                 for v in sorted_vars:
                         key = v[1:]
-                        print(f"key = {key}")
                         if key in self.tvars:
                                 val = self.tvars[key]
                                 if type(val) == list:
                                         val = (' ').join(val)
                                 cmd = cmd.replace(v, val)
                 return cmd
+
+
+        def push_build_dir(self, builddir):
+                self.old_cwd = os.getcwd()
+
+                # Check if build_dir/build_prefix exists
+                opath = Path(os.path.join(builddir, self.build_prefix))
+                opath.mkdir(parents=True, exist_ok=True)
+
+                self.logger.info(f"Entering directory {opath}")
+                os.chdir(opath)
+
+
+        def path_restore(self):
+                self.logger.info(f"Leaving directory {os.getcwd()}")
+                os.chdir(self.old_cwd)
+
+
+class TargetConfig(Target):
+        def __init__(self, name, settings):
+                super().__init__(name, settings)
+                self.logger = logging.getLogger('TargetConfig')
+                self.logger.debug(f'Creating target {name}')
+                if not 'source' in settings:
+                        raise Exception("Missing source in config target")
+                self.input = settings['source']
+
+        def build(self, dryrun, builddir):
+                self.logger.debug(f'vars = {self.tvars}')
+                self.built = True
+
+                self.input = os.path.join(self.source_dir, self.input)
+                self.logger.info(f'Config template is {self.input}')
+
+                self.push_build_dir(builddir)
+                outname = Path(os.path.basename(self.input)).stem
+
+                outname = os.path.join(os.getcwd(), outname)
+
+                shutil.copyfile(self.input, outname)
+                # now open the file and replace variables
+
+                with open(outname, 'r+') as f:
+                        file = f.read()
+
+                        cvars = re.findall('\\@([a-zA-Z0-9_]+)\\@', file)
+                        cvars = sorted(cvars, key=len)
+                        cvars.reverse()
+                        cvars = list(set(cvars))
+
+                        for v in cvars:
+                                if v in self.global_vars:
+                                        file = file.replace(f"@{v}@",
+                                                self.global_vars[v])
+
+                        f.seek(0)
+                        f.write(file)
+                        f.truncate()
+
+                self.path_restore()
 
 
 class TargetExe(Target):
@@ -74,25 +134,14 @@ class TargetExe(Target):
 
         def build(self, dryrun, builddir):
                 self.logger.debug(f'vars = {self.tvars}')
-                # x = executor.Executor(dryrun, builddir)
-                # if not x.run("pwd"):
-                #        self.logger.error(f'Build error')
-                old_cwd = os.getcwd()
 
-                # Check if build_dir/build_prefix exists
-                opath = Path(os.path.join(builddir, self.build_prefix))
-                opath.mkdir(parents=True, exist_ok=True)
-
-                self.logger.info(f"Entering directory {opath}")
-                os.chdir(opath)
-
+                self.push_build_dir(builddir)
                 x = executor.Executor(dryrun)
 
                 for o in self.objects:
                         # check that path is not absolute
                         if os.path.isabs(o):
-                                self.logger.info(f"Leaving directory {opath}")
-                                os.chdir(old_cwd)
+                                self.path_restore()
                                 raise Exception("object path must be relative")
 
                         obj_file = os.path.join(self.build_prefix, o)
@@ -115,8 +164,7 @@ class TargetExe(Target):
                                         command_list = self.compile_cmds[e]
                                         break
                         if not src_file:
-                                self.logger.info(f"Leaving directory {opath}")
-                                os.chdir(old_cwd)
+                                self.path_restore()
                                 raise Exception(f"Missing source for {o}")
 
                         # We found a source file, compile it
@@ -143,8 +191,7 @@ class TargetExe(Target):
                                 cmd = self.var_subst(cmd)
                                 x.run(cmd)
 
-                self.logger.info(f"Leaving directory {opath}")
-                os.chdir(old_cwd)
+                self.path_restore()
                 self.built = True
 
         def clean(self, dryrun, builddir):
@@ -198,6 +245,15 @@ def TargetFactory(name, settings, config_obj):
                 new_target = TargetLib(name, settings)
         elif settings['type'] in ['a', 'alias']:
                 new_target = TargetAlias(name, settings)
+        elif settings['type'] in ['c', 'config']:
+                new_target = TargetConfig(name, settings)
+
+        if 'depends' in settings:
+                for d in settings['depends']:
+                        # Check if target we depend on exists
+                        if not d in config_obj.cfg:
+                                raise Exception(f'Missing target definition for {d}')
+                        new_target._deps.add(d)
 
         if 'vars' in settings:
                 new_target.tvars = settings['vars']
@@ -216,6 +272,7 @@ def TargetFactory(name, settings, config_obj):
                 source_dir = settings['source_dir']
 
         new_target.source_dir = os.path.join(config_obj.project_dir, source_dir)
+        logger.debug(f'souce dir = {new_target.source_dir}')
 
         if 'build_prefix' in settings:
                 if os.path.isabs(settings['build_prefix']):
@@ -226,5 +283,8 @@ def TargetFactory(name, settings, config_obj):
 
         if "link_all" in settings:
                 new_target.link_cmd = settings["link_all"]
+
+
+        new_target.global_vars = config_obj.global_vars
 
         return new_target
