@@ -33,6 +33,8 @@ parser = argparse.ArgumentParser(
         epilog = EPILOG)
 parser.add_argument('-f', '--file', type=str, default='smake.yaml',
                     dest='makefile')
+parser.add_argument('-d', '--dryrun', action='store_true',
+                    default=False, dest='dryrun')
 
 subparsers = parser.add_subparsers(dest='subcommand')
 
@@ -56,6 +58,7 @@ if not args.subcommand in ['build', 'clean']:
 
 try:
         tree = build_tree(logger, cfile=args.makefile)
+        tree.dryrun = args.dryrun
         func = getattr(tree, args.subcommand)
         func(args.targets)
 
