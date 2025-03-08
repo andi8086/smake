@@ -106,6 +106,7 @@ class TargetConfig(Target):
                 shutil.copyfile(self.input, outname)
                 # now open the file and replace variables
 
+                self.logger.info(f'Generating {outname}')
                 with open(outname, 'r+') as f:
                         file = f.read()
 
