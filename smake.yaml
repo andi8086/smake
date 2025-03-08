@@ -14,7 +14,20 @@ default:
 
 core0:
         type: x
-        compiler: "gcc"
+        vars:
+                cflags:
+                        - -c
+                result: core0.out
+        source_dir: src/core0
+        build_prefix: core0
+        objects:
+                - main.o
+                - blah/test.o
+        compile_each_c:
+                - gcc $cflags $input -o $output
+        link_all:
+                - gcc $objects -o $result
+
 
 core1:
         type: x

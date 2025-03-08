@@ -6,12 +6,12 @@ class build_tree:
         logger = None
         dryrun = False
 
-        def __init__(self, logger, cfile = 'smake.yaml'):
+        def __init__(self, logger, builddir, cfile = 'smake.yaml'):
                 self.logger = logger
                 self.dryrun = False
                 try:
                         self.logger.info(f"Parsing {cfile}")
-                        self.config = Config(cfile)
+                        self.config = Config(cfile, builddir)
                         self.config.parse()
                 except:
                         raise Exception("Config Exception")
@@ -35,7 +35,7 @@ class build_tree:
                                         self.logger.debug(f"Deps: {ct.deps()}")
                                         self.build_target_tree(ct.deps())
                                         self.logger.info(f"Building {ct.name}")
-                                        ct.build(dryrun=self.dryrun)
+                                        ct.build(self.dryrun, self.config.build_dir)
                                 break
 
         def build(self, targets):
@@ -56,7 +56,7 @@ class build_tree:
                                         self.logger.debug(f"Deps: {ct.deps()}")
                                         self.clean_target_tree(ct.deps())
                                         self.logger.info(f"Cleaning {ct.name}")
-                                        ct.clean(dryrun=self.dryrun)
+                                        ct.clean(self.dryrun, self.config.build_dir)
                                 break
 
         def clean(self, targets):

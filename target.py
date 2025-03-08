@@ -1,5 +1,8 @@
 import logging
 import executor
+import re
+import os
+from pathlib import Path
 
 
 class Target:
@@ -8,6 +11,12 @@ class Target:
         _deps = None
         built = False
         cleaned = False
+        tvars = {}
+        script = []
+        compile_cmds = {}
+        objects = []
+        source_dir = ""
+        link_cmd = None
 
         def __init__(self, name, settings):
                 self.name = name
@@ -15,6 +24,11 @@ class Target:
                 self._deps = set()
                 self.cleaned = False
                 self.built = False
+                self.tvars = {}
+                self.script = []
+                self.compile_cmds = {}
+                self.objects = []
+                self.link_cmd = None
 
         def getName(self):
                 return self.name
@@ -30,11 +44,26 @@ class Target:
                         return self.name == other
                 return self.name == other.name
 
-        def build(self, dryrun):
+        def build(self, dryrun, builddir):
                 pass
 
-        def clean(self, dryrun):
+        def clean(self, dryrun, builddir):
                 pass
+
+        def var_subst(self, cmd):
+                cmd_vars = re.findall("\$[a-zA-Z0-9_]*", cmd)
+                # Replace one by one with descending length
+                sorted_vars = sorted(cmd_vars, key=len)
+                sorted_vars.reverse()
+                for v in sorted_vars:
+                        key = v[1:]
+                        print(f"key = {key}")
+                        if key in self.tvars:
+                                val = self.tvars[key]
+                                if type(val) == list:
+                                        val = (' ').join(val)
+                                cmd = cmd.replace(v, val)
+                return cmd
 
 
 class TargetExe(Target):
@@ -43,13 +72,82 @@ class TargetExe(Target):
                 self.logger = logging.getLogger('TargetExe')
                 self.logger.debug(f'Creating target {name}')
 
-        def build(self, dryrun):
+        def build(self, dryrun, builddir):
+                self.logger.debug(f'vars = {self.tvars}')
+                # x = executor.Executor(dryrun, builddir)
+                # if not x.run("pwd"):
+                #        self.logger.error(f'Build error')
+                old_cwd = os.getcwd()
+
+                # Check if build_dir/build_prefix exists
+                opath = Path(os.path.join(builddir, self.build_prefix))
+                opath.mkdir(parents=True, exist_ok=True)
+
+                self.logger.info(f"Entering directory {opath}")
+                os.chdir(opath)
+
                 x = executor.Executor(dryrun)
-                if not x.run("gcc -v"):
-                        self.logger.error(f'Build error')
+
+                for o in self.objects:
+                        # check that path is not absolute
+                        if os.path.isabs(o):
+                                self.logger.info(f"Leaving directory {opath}")
+                                os.chdir(old_cwd)
+                                raise Exception("object path must be relative")
+
+                        obj_file = os.path.join(self.build_prefix, o)
+
+                        # Get basename of object file
+                        basename = Path(o).stem
+                        dirname = os.path.dirname(o)
+
+                        # check all registered exts from compile_each rules
+                        # to look for a matching source file
+                        src_file = None
+                        command_list = []
+
+                        for e in self.compile_cmds:
+                                testfile = os.path.join(self.source_dir,
+                                        dirname, basename + '.' + e)
+                                self.logger.debug(f'testing src {testfile}')
+                                if os.path.isfile(testfile):
+                                        src_file = testfile
+                                        command_list = self.compile_cmds[e]
+                                        break
+                        if not src_file:
+                                self.logger.info(f"Leaving directory {opath}")
+                                os.chdir(old_cwd)
+                                raise Exception(f"Missing source for {o}")
+
+                        # We found a source file, compile it
+                        self.logger.debug(f'compile {src_file} to {o}')
+                        self.logger.info(f'[COMPILE] {obj_file}')
+                        self.logger.debug(f'command list: {command_list}')
+
+                        # Check if directory for o exists
+                        if not os.path.exists(os.path.dirname(o)):
+                                Path(os.path.dirname(o)).mkdir(parents=True, exist_ok=True)
+
+                        for cmd in command_list:
+                                cmd = cmd.replace("$input", '"' + src_file + '"')
+                                cmd = cmd.replace("$output", '"' + o + '"')
+                                # Substitute target variables
+                                cmd = self.var_subst(cmd)
+                                x.run(cmd)
+
+                if self.link_cmd:
+                        if type(self.link_cmd) != list:
+                                self.link_cmd = [self.link_cmd]
+                        for cmd in self.link_cmd:
+                                cmd = cmd.replace("$objects", ' '.join(self.objects))
+                                cmd = self.var_subst(cmd)
+                                x.run(cmd)
+
+                self.logger.info(f"Leaving directory {opath}")
+                os.chdir(old_cwd)
                 self.built = True
 
-        def clean(self, dryrun):
+        def clean(self, dryrun, builddir):
                 self.cleaned = True
 
 
@@ -59,10 +157,10 @@ class TargetLib(Target):
                 self.logger = logging.getLogger('TargetLib')
                 self.logger.debug(f'Creating target {name}')
 
-        def build(self, dryrun):
+        def build(self, dryrun, builddir):
                 self.built = True
 
-        def clean(self, dryrun):
+        def clean(self, dryrun, builddir):
                 self.cleaned = True
 
 
@@ -79,27 +177,54 @@ class TargetAlias(Target):
                         self.logger.debug(f'Adding subtarget {st}')
                         self._deps.add(st)
 
-        def build(self, dryrun):
+        def build(self, dryrun, builddir):
                 self.built = True
 
-        def clean(self, dryrun):
+        def clean(self, dryrun, builddir):
                 self.cleaned = True
 
 
-def TargetFactory(name, settings):
+def TargetFactory(name, settings, config_obj):
         logger = logging.getLogger('TargetFactory')
+        new_target = None
 
         if not 'type' in settings:
                 logger.error(f'Missing type for target {name}')
                 raise Exception('Target missing type')
 
         if settings['type'] in ['x', 'exe', 'executable']:
-                return TargetExe(name, settings)
+                new_target = TargetExe(name, settings)
+        elif settings['type'] in ['l', 'lib', 'library']:
+                new_target = TargetLib(name, settings)
+        elif settings['type'] in ['a', 'alias']:
+                new_target = TargetAlias(name, settings)
 
-        if settings['type'] in ['l', 'lib', 'library']:
-                return TargetLib(name, settings)
+        if 'vars' in settings:
+                new_target.tvars = settings['vars']
 
-        if settings['type'] in ['a', 'alias']:
-                return TargetAlias(name, settings)
+        for key in settings:
+                if re.match(r"compile_each_.+", key):
+                        extension = key[len("compile_each_"):]
+                        compile_cmds = {extension : settings[key]}
+                        new_target.compile_cmds = compile_cmds
 
-        return Target(name, settings)
+        if 'objects' in settings:
+                new_target.objects = settings['objects']
+
+        source_dir = '.'
+        if 'source_dir' in settings:
+                source_dir = settings['source_dir']
+
+        new_target.source_dir = os.path.join(config_obj.project_dir, source_dir)
+
+        if 'build_prefix' in settings:
+                if os.path.isabs(settings['build_prefix']):
+                        raise Exception(f'target build_prefix must be relative')
+                new_target.build_prefix = settings['build_prefix']
+        else:
+                new_target.build_prefix = None
+
+        if "link_all" in settings:
+                new_target.link_cmd = settings["link_all"]
+
+        return new_target
