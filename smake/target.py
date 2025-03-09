@@ -86,11 +86,12 @@ class Target:
                         opath.mkdir(parents=True, exist_ok=True)
 
                 self.logger.info(f"Entering directory {opath}")
+                self.lastpath = opath
                 if not self.dryrun:
                         os.chdir(opath)
 
         def path_restore(self):
-                self.logger.info(f"Leaving directory {os.getcwd()}")
+                self.logger.info(f"Leaving directory {self.lastpath}")
                 if not self.dryrun:
                         os.chdir(self.old_cwd)
 

@@ -32,7 +32,6 @@ class build_tree:
                 for t in targets:
                         t_builddir = all_targets[t].get_build_dir(self.builddir)
                         t_builddir = os.path.abspath(t_builddir)
-                        print(f"{t}: {t_builddir}")
                         for ct in self.config.targets:
                                 if t != ct:
                                         continue
@@ -102,4 +101,3 @@ class build_tree:
                                         values = [self.subst_BS(v) for v in values]
                                 variables[k] = values
                         all_targets[t].settings['vars'] = variables
-                        print(variables)
