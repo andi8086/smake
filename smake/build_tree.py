@@ -1,6 +1,6 @@
 import os
-from config import *
-from target import all_targets
+from .config import *
+from .target import all_targets
 import re
 
 class build_tree:

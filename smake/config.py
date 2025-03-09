@@ -1,8 +1,8 @@
 from schema import Schema, SchemaError
 import yaml
 import logging
-from compiler import Compiler
-import target
+from .compiler import Compiler
+from . import target
 import os
 
 

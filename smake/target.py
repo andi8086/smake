@@ -1,5 +1,5 @@
 import logging
-import executor
+from . import executor
 import re
 import os
 from pathlib import Path
