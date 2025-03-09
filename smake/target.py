@@ -142,10 +142,10 @@ class TargetConfig(Target):
                 self.path_restore()
 
 
-class TargetExe(Target):
-        def __init__(self, name, settings):
+class TargetBin(Target):
+        def __init__(self, name, settings, classname):
                 super().__init__(name, settings)
-                self.logger = logging.getLogger('TargetExe')
+                self.logger = logging.getLogger(classname)
                 self.logger.debug(f'Creating target {name}')
 
         def build(self, dryrun, builddir):
@@ -215,18 +215,14 @@ class TargetExe(Target):
         def clean(self, dryrun, builddir):
                 self.cleaned = True
 
-
-class TargetLib(Target):
+class TargetExe(TargetBin):
         def __init__(self, name, settings):
-                super().__init__(name, settings)
-                self.logger = logging.getLogger('TargetLib')
-                self.logger.debug(f'Creating target {name}')
+                super().__init__(name, settings, 'TargetExe')
 
-        def build(self, dryrun, builddir):
-                self.built = True
 
-        def clean(self, dryrun, builddir):
-                self.cleaned = True
+class TargetLib(TargetBin):
+        def __init__(self, name, settings):
+                super().__init__(name, settings, 'TargetLib')
 
 
 class TargetAlias(Target):
@@ -297,7 +293,7 @@ def TargetFactory(name, settings, config_obj):
                         raise Exception(f'target build_prefix must be relative')
                 new_target.build_prefix = settings['build_prefix']
         else:
-                new_target.build_prefix = None
+                new_target.build_prefix = ''
 
         if "link_all" in settings:
                 new_target.link_cmd = settings["link_all"]

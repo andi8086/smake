@@ -6,16 +6,13 @@ includes:
 targets:
         - default
         - config
-        - core0
-        - core1
-        - writer
+        - app0
+        - lib0
 
 default:
         type: alias
         targets:
-                - core0
-                - core1
-                - writer
+                - app0
 
 config:
         type: c
@@ -25,7 +22,7 @@ config:
         source: config.h.in
         build_prefix: config
 
-core0:
+app0:
         type: x
         vars:
                 cflags:
@@ -33,12 +30,13 @@ core0:
                         - -I"$B(config)"
                 ldflags:
                         - -g
-                        - -L"$B(config)"
+                        - -L"$B(lib0)" -l:$V(lib0,result)
                 result: core0.out
-        source_dir: src/core0
-        build_prefix: core0
+        source_dir: src/app0
+        build_prefix: app0
         depends:
                 - config
+                - lib0
         objects:
                 - main.o
                 - blah/test.o
@@ -48,8 +46,22 @@ core0:
                 - gcc $ldflags $objects -o $result
 
 
-core1:
-        type: x
-
-writer:
-        type: x
+lib0:
+        type: l
+        vars:
+                cflags:
+                        - -c -g
+                        - -I"$B(config)"
+                arflags:
+                        - rcs
+                result: lib0.a
+        source_dir: src/lib0
+        build_prefix: lib0
+        depends:
+                - config
+        objects:
+                - lib0.o
+        compile_each_c:
+                - gcc $cflags $input -o $output
+        link_all:
+                - ar $arflags $result $objects
