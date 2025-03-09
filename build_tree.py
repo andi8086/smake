@@ -77,6 +77,10 @@ class build_tree:
                         for n in tname:
                                 v = v.replace(f'$B({n})',
                                         str(all_targets[n].get_build_dir(self.builddir)))
+                tname = re.findall('\\$S\\(([A-Za-z0-9_]+)\\)', v)
+                if len(tname) > 0:
+                        for n in tname:
+                                v = v.replace(f'$S({n})', all_targets[n].source_dir)
                 return v
 
         def var_subst(self):
