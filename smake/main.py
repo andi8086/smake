@@ -44,7 +44,7 @@ def main():
 
         # Common arguments for sub commands
         common_parser = argparse.ArgumentParser(description='targets')
-        common_parser.add_argument('targets', default='default', nargs='*')
+        common_parser.add_argument('targets', default=['default'], nargs='*')
 
         # sub commands
         build_parser = subparsers.add_parser('build', parents=[common_parser],
@@ -52,6 +52,8 @@ def main():
 
         clean_parser = subparsers.add_parser('clean', parents=[common_parser],
                                              add_help=False)
+        clean_parser.add_argument('-r', '--recursive', action='store_true',
+                                  dest='recursive')
 
         args = parser.parse_args()
 
@@ -80,8 +82,12 @@ def main():
                 # Substitute macros and magic variables in all target configs
                 tree.var_subst()
 
+                options = {}
+                if args.subcommand == 'clean':
+                        options['recursive'] = args.recursive
+
                 func = getattr(tree, args.subcommand)
-                func(args.targets)
+                func(args.targets, options)
 
         except Exception as err:
                 logger.exception(traceback.format_exc())

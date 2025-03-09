@@ -44,13 +44,13 @@ class build_tree:
                                         ct.build(self.dryrun, self.config.build_dir)
                                 break
 
-        def build(self, targets):
+        def build(self, targets, options):
                 self.logger.info(f"Building targets {targets}")
                 # TODO: check dep targets as well
                 self.check_targets(targets)
                 self.build_target_tree(targets)
 
-        def clean_target_tree(self, targets):
+        def clean_target_tree(self, targets, recursive):
                 # find the corresponding target object
                 # for each target and call its clean method
                 for t in targets:
@@ -59,16 +59,17 @@ class build_tree:
                                         continue
                                 self.logger.debug(f"Current Target {t}")
                                 if not ct.cleaned:
-                                        self.logger.debug(f"Deps: {ct.deps()}")
-                                        self.clean_target_tree(ct.deps())
+                                        if recursive:
+                                                self.logger.debug(f"Deps: {ct.deps()}")
+                                                self.clean_target_tree(ct.deps(), recursive)
                                         self.logger.info(f"Cleaning {ct.name}")
                                         ct.clean(self.dryrun, self.config.build_dir)
                                 break
 
-        def clean(self, targets):
+        def clean(self, targets, options):
                 self.logger.info(f"Cleaning targets {targets}")
                 self.check_targets(targets)
-                self.clean_target_tree(targets)
+                self.clean_target_tree(targets, options['recursive'])
 
         def subst_BS(self, v):
                 tname = re.findall('\\$B\\(([A-Za-z0-9_]+)\\)', v)
