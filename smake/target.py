@@ -77,23 +77,45 @@ class Target:
                 opath = Path(os.path.join(builddir, self.build_prefix))
                 return opath
 
-        def push_build_dir(self, builddir):
+        def push_build_dir(self, builddir, nocreate=False):
                 self.old_cwd = os.getcwd()
 
                 # Check if build_dir/build_prefix exists
                 opath = self.get_build_dir(builddir)
-                if not self.dryrun:
+                if not self.dryrun and not nocreate:
                         opath.mkdir(parents=True, exist_ok=True)
 
                 self.logger.info(f"Entering directory {opath}")
                 self.lastpath = opath
                 if not self.dryrun:
-                        os.chdir(opath)
+                        try:
+                                os.chdir(opath)
+                        except:
+                                return False
+                return True
 
         def path_restore(self):
                 self.logger.info(f"Leaving directory {self.lastpath}")
                 if not self.dryrun:
                         os.chdir(self.old_cwd)
+
+        def rmtree(self, builddir):
+                # only remove directories, non-empty directories
+                # will remain
+                bdir = str(self.get_build_dir(builddir))
+                for top, dirs, files in os.walk(bdir, topdown=False):
+                        for d in dirs:
+                                ddir = os.path.join(top, d)
+                                try:
+                                        self.logger.debug(f'Deleting dir {ddir}')
+                                        os.rmdir(ddir)
+                                except:
+                                        self.logger.debug(f'Could not delete {ddir}')
+                        try:
+                                os.rmdir(top)
+                        except:
+                                self.logger.debug(f'Deleting dir {top}')
+                                self.logger.debug(f'Could not delete {top}')
 
 
 class TargetConfig(Target):
@@ -141,6 +163,33 @@ class TargetConfig(Target):
                         f.truncate()
 
                 self.path_restore()
+
+        def clean(self, dryrun, builddir):
+                self.dryrun = dryrun
+                if not self.push_build_dir(builddir, nocreate=True):
+                        # we cannot clean anything since the
+                        # directory is already gone
+                        self.cleaned = True
+                        return
+
+                if 'result' in self.tvars:
+                        r = self.tvars['result']
+                        self.logger.info(f'[DEL] {r}')
+                        if not dryrun:
+                                try:
+                                        os.unlink(f'{r}')
+                                except:
+                                        pass
+
+                self.path_restore()
+
+                if not dryrun:
+                        try:
+                                self.rmtree(builddir)
+                        except:
+                                pass
+
+                self.cleaned = True
 
 
 class TargetBin(Target):
@@ -205,6 +254,7 @@ class TargetBin(Target):
                 if self.link_cmd:
                         if type(self.link_cmd) != list:
                                 self.link_cmd = [self.link_cmd]
+                        self.logger.info(f'[LINK] {self.name}')
                         for cmd in self.link_cmd:
                                 cmd = cmd.replace("$objects", ' '.join(self.objects))
                                 cmd = self.var_subst(cmd)
@@ -214,6 +264,37 @@ class TargetBin(Target):
                 self.built = True
 
         def clean(self, dryrun, builddir):
+                self.dryrun = dryrun
+                if not self.push_build_dir(builddir, nocreate=True):
+                        # Nothing to clean, directory not there anymore
+                        self.cleaned = True
+                        return
+
+                # Clean all object files
+                for o in self.objects:
+                        self.logger.info(f'[DEL] {o}')
+                        if not dryrun:
+                                try:
+                                        os.unlink(f'{o}')
+                                except:
+                                        pass
+
+                if 'result' in self.tvars:
+                        r = self.tvars['result']
+                        self.logger.info(f'[DEL] {r}')
+                        if not dryrun:
+                                try:
+                                        os.unlink(f'{r}')
+                                except:
+                                        pass
+
+                self.path_restore()
+                if not dryrun:
+                        try:
+                                self.rmtree(builddir)
+                        except Exception as e:
+                                self.logger.error(e)
+
                 self.cleaned = True
 
 class TargetExe(TargetBin):
