@@ -53,10 +53,10 @@ class Target:
                 return self.name == other.name
 
         def build(self, dryrun, builddir):
-                pass
+                self.dryrun = dryrun
 
         def clean(self, dryrun, builddir):
-                pass
+                self.dryrun = dryrun
 
         def var_subst(self, cmd):
                 cmd_vars = re.findall("\\$[a-zA-Z0-9_]*", cmd)
@@ -82,14 +82,17 @@ class Target:
 
                 # Check if build_dir/build_prefix exists
                 opath = self.get_build_dir(builddir)
-                opath.mkdir(parents=True, exist_ok=True)
+                if not self.dryrun:
+                        opath.mkdir(parents=True, exist_ok=True)
 
                 self.logger.info(f"Entering directory {opath}")
-                os.chdir(opath)
+                if not self.dryrun:
+                        os.chdir(opath)
 
         def path_restore(self):
                 self.logger.info(f"Leaving directory {os.getcwd()}")
-                os.chdir(self.old_cwd)
+                if not self.dryrun:
+                        os.chdir(self.old_cwd)
 
 
 class TargetConfig(Target):
@@ -102,6 +105,8 @@ class TargetConfig(Target):
                 self.input = settings['source']
 
         def build(self, dryrun, builddir):
+                self.dryrun = dryrun
+
                 self.logger.debug(f'vars = {self.tvars}')
                 self.built = True
 
@@ -144,6 +149,8 @@ class TargetExe(Target):
                 self.logger.debug(f'Creating target {name}')
 
         def build(self, dryrun, builddir):
+                self.dryrun = dryrun
+
                 self.logger.debug(f'vars = {self.tvars}')
 
                 self.push_build_dir(builddir)
