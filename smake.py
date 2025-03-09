@@ -78,6 +78,10 @@ if not args.subcommand in ['build', 'clean']:
 try:
         tree = build_tree(logger, args.builddir, cfile=args.makefile)
         tree.dryrun = args.dryrun
+
+        # Substitute macros and magic variables in all target configs
+        tree.var_subst()
+
         func = getattr(tree, args.subcommand)
         func(args.targets)
 

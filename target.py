@@ -295,7 +295,6 @@ def TargetFactory(name, settings, config_obj):
         if "link_all" in settings:
                 new_target.link_cmd = settings["link_all"]
 
-
         new_target.global_vars = config_obj.global_vars
 
         all_targets[name] = new_target

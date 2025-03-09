@@ -30,8 +30,10 @@ core0:
         vars:
                 cflags:
                         - -c -g
+                        - -I"$B(config)"
                 ldflags:
                         - -g
+                        - -L"$B(config)"
                 result: core0.out
         source_dir: src/core0
         build_prefix: core0

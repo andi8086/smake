@@ -1,6 +1,7 @@
 import os
 from config import *
 from target import all_targets
+import re
 
 class build_tree:
 
@@ -69,3 +70,27 @@ class build_tree:
                 self.logger.info(f"Cleaning targets {targets}")
                 self.check_targets(targets)
                 self.clean_target_tree(targets)
+
+        def subst_BS(self, v):
+                tname = re.findall('\\$B\\(([A-Za-z0-9_]+)\\)', v)
+                if len(tname) > 0:
+                        for n in tname:
+                                v = v.replace(f'$B({n})',
+                                        str(all_targets[n].get_build_dir(self.builddir)))
+                return v
+
+        def var_subst(self):
+                for t in all_targets:
+                        # Check if we have variables
+                        variables = []
+                        if 'vars' in all_targets[t].settings:
+                                variables = all_targets[t].settings['vars']
+                        for k in variables:
+                                values = variables[k]
+                                if not type(values) == list:
+                                        values = self.subst_BS(values)
+                                else:
+                                        values = [self.subst_BS(v) for v in values]
+                                variables[k] = values
+                        all_targets[t].settings['vars'] = variables
+                        print(variables)
