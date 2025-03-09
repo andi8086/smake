@@ -6,6 +6,13 @@ from pathlib import Path
 import shutil
 
 
+# After all targets have been created, this
+# is a list of references to all the targets, so that
+# every target can access properties of all other targets
+# Keep it simple and stupid here
+all_targets = dict()
+
+
 class Target:
         name = None
         logger = None
@@ -65,17 +72,20 @@ class Target:
                                 cmd = cmd.replace(v, val)
                 return cmd
 
+        def get_build_dir(self, builddir):
+                # Appends build_prefix and returns the full path
+                opath = Path(os.path.join(builddir, self.build_prefix))
+                return opath
 
         def push_build_dir(self, builddir):
                 self.old_cwd = os.getcwd()
 
                 # Check if build_dir/build_prefix exists
-                opath = Path(os.path.join(builddir, self.build_prefix))
+                opath = self.get_build_dir(builddir)
                 opath.mkdir(parents=True, exist_ok=True)
 
                 self.logger.info(f"Entering directory {opath}")
                 os.chdir(opath)
-
 
         def path_restore(self):
                 self.logger.info(f"Leaving directory {os.getcwd()}")
@@ -287,5 +297,7 @@ def TargetFactory(name, settings, config_obj):
 
 
         new_target.global_vars = config_obj.global_vars
+
+        all_targets[name] = new_target
 
         return new_target

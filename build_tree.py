@@ -1,10 +1,12 @@
 import os
 from config import *
+from target import all_targets
 
 class build_tree:
 
         logger = None
         dryrun = False
+        builddir = ""
 
         def __init__(self, logger, builddir, cfile = 'smake.yaml'):
                 self.logger = logger
@@ -13,6 +15,7 @@ class build_tree:
                         self.logger.info(f"Parsing {cfile}")
                         self.config = Config(cfile, builddir)
                         self.config.parse()
+                        self.builddir = self.config.build_dir
                 except:
                         raise Exception("Config Exception")
 
@@ -26,6 +29,9 @@ class build_tree:
                 # find the corresponding target object
                 # for each target and call its build method
                 for t in targets:
+                        t_builddir = all_targets[t].get_build_dir(self.builddir)
+                        t_builddir = os.path.abspath(t_builddir)
+                        print(f"{t}: {t_builddir}")
                         for ct in self.config.targets:
                                 if t != ct:
                                         continue

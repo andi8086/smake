@@ -29,7 +29,9 @@ core0:
         type: x
         vars:
                 cflags:
-                        - -c
+                        - -c -g
+                ldflags:
+                        - -g
                 result: core0.out
         source_dir: src/core0
         build_prefix: core0
@@ -41,7 +43,7 @@ core0:
         compile_each_c:
                 - gcc $cflags $input -o $output
         link_all:
-                - gcc $objects -o $result
+                - gcc $ldflags $objects -o $result
 
 
 core1:
